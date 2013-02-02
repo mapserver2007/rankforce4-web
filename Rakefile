@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 task:default => [:github_push, :heroku_deploy]
 
-task :github_push => [:spec] do
+task :github_push do
   sh 'git push origin master'
 end
 
@@ -18,6 +18,10 @@ end
 #     sh "heroku config:add #{key}=#{value}"
 #   end
 # end
+
+task :heroku_create do
+  sh "heroku create --stack cedar rankforce4-web"
+end
 
 task :timezone do
   sh "heroku config:add TZ=Asia/Tokyo"

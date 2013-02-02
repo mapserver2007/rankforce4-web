@@ -6,6 +6,8 @@ GEM
     rack (1.5.1)
     rack-protection (1.3.2)
       rack
+    shotgun (0.9)
+      rack (>= 1.0)
     sinatra (1.3.4)
       rack (~> 1.4)
       rack-protection (~> 1.3)
@@ -20,5 +22,6 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
+  shotgun
   sinatra
   thin
