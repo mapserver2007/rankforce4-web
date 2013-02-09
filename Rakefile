@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+require 'sys/proctable'
+
 task:default => [:github_push, :heroku_deploy]
 
 task :github_push do
@@ -33,4 +35,17 @@ end
 
 task :heroku_stop do
   sh "heroku scale web=0"
+end
+
+task :mongo_start do
+  sh "sudo mongod --dbpath /Users/stay/mongodb --logpath /var/log/mongodb.log &"
+end
+
+task :mongo_stop do
+  Sys::ProcTable.ps.each do |ps|
+    if ps.comm == 'mongod'
+      # SIGINT(2)
+      sh "sudo kill -2 #{ps.pid}"
+    end
+  end
 end

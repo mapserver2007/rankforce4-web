@@ -30,3 +30,5 @@ RCSLOG
 SCCS
 _$*
 _svn
+sandbox/
+config/database.mongo.yml
