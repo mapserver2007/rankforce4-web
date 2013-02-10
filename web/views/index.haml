@@ -3,14 +3,25 @@
 %html
   %head
     %meta{'http-equiv' => 'content', :content => 'text/html; charset=utf-8'}
+    %meta{:name => 'viewport', :content => 'width=device-width, initial-scale=1.0'}
     %title RankForce -2chの勢いを監視-
+    %link{:href => '/bootstrap/css/bootstrap.min.css', :rel => 'stylesheet', :type => 'text/css', :media => 'screen'}
+    %link{:href => '/style.css', :rel => 'stylesheet', :type => 'text/css', :media => 'screen'}
+  %body
+    %div.page-header
+      %h3 @rankforce
+      %div
+        %a.twitter-follow-button{:href => "https://twitter.com/rankforce", 'data-show-count' => "false", 'data-lang' => "ja"}
+    %div#graph
+      %img#loading{:src => "/loading.gif"}
     %script{:type => 'text/javascript', :src => '/jquery.min.js'}
     %script{:type => 'text/javascript', :src => '/mix.js'}
     %script{:type => 'text/javascript', :src => '/mix.modules.js'}
     %script{:type => 'text/javascript', :src => '/highcharts.js'}
     %script{:type => 'text/javascript', :src => '/exporting.js'}
     %script{:type => 'text/javascript', :src => '/rankforce.js'}
+    %script{:type => 'type/javascript', :src => '/bootstrap/js/bootstrap.min.js'}
     %script{:type => 'text/javascript'}
       RankForce.run(#{@data});
-  %body
-    %div#graph
+    %script{:type => 'text/javascript'}
+      !function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");

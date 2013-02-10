@@ -74,7 +74,7 @@ Mixjs.module("RankForce", {
         }
         
         $(document).ready(function() {
-            new Highcharts.Chart({
+            var chart = new Highcharts.Chart({
                 chart: {
                     renderTo: "graph",
                     defaultSeriesType: "line"
@@ -120,6 +120,10 @@ Mixjs.module("RankForce", {
                     id: idList
                 }]
             });
+
+            chart.series[0].hide();
+            chart.series[1].hide();
+            chart.series[2].hide();
         });
     },
 

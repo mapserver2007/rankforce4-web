@@ -32,3 +32,4 @@ _$*
 _svn
 sandbox/
 config/database.mongo.yml
+.sass-cache
