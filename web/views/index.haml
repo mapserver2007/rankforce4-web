@@ -8,8 +8,9 @@
     %script{:type => 'text/javascript', :src => '/mix.js'}
     %script{:type => 'text/javascript', :src => '/mix.modules.js'}
     %script{:type => 'text/javascript', :src => '/highcharts.js'}
+    %script{:type => 'text/javascript', :src => '/exporting.js'}
     %script{:type => 'text/javascript', :src => '/rankforce.js'}
     %script{:type => 'text/javascript'}
-      RankForce.run({board: "#{@board}"});
+      RankForce.run(#{@data});
   %body
     %div#graph

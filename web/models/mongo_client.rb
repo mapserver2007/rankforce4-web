@@ -36,7 +36,7 @@ module RankForce
       qs = @query.map {|k, v| "#{k}=#{v}"}.join("&")
       url = @path + "?#{qs}"
       https_start do |https|
-        JSON.parse(https.get(url).body)
+        JSON.parse(https.get(url).body).reverse
       end
     end
   end
@@ -56,6 +56,5 @@ module RankForce
       @query[:s] = {"#{item}" => order.to_i}.to_json
       self
     end
-
   end
 end

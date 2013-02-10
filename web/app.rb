@@ -4,6 +4,7 @@ $: << File.dirname(__FILE__) + "/"
 require 'sinatra'
 require 'sinatra/json'
 require 'haml'
+require 'json'
 require 'models/resolver'
 
 set :public_folder, File.dirname(__FILE__) + '/views'
@@ -15,7 +16,11 @@ get '/' do
 end
 
 get '/:board' do
-  @board = params['board']
+  @data = {
+    :board => params['board'],
+    :board_ja => board_to_ja(params['board']),
+    :limit => params['limit']
+  }.to_json
   haml :index
 end
 
