@@ -12,6 +12,7 @@ Mixjs.module("RankForce", {
 
     run: function(params) {
         var self = this,
+            params = params || {},
             limit = Math.floor($(document).width() / 35);
         if (!params.hasOwnProperty("board")) {
             params["board"] = "all";

@@ -15,13 +15,15 @@ module RankForce
     params[:sort_item]   ||= DEFAULT_SORT_ITEM
   end
 
-  def get_json
+  def get_json(params)
     sanitize(params)
     client = MongoClient.new("database.mongo.yml")
-    client.sort(params[:sort_item], params[:sort_order]).get
+    client.sort(params[:sort_item], params[:sort_order])
+          .limit(params[:limit])
+          .get
   end
 
-  def get_json_by_board(params = {})
+  def get_json_by_board(params)
     sanitize(params)
     client = MongoClient.new("database.mongo.yml")
     client.sort(params[:sort_item], params[:sort_order])
