@@ -1,5 +1,15 @@
 # -*- coding: utf-8 -*-
 require 'sys/proctable'
+require 'yaml'
+
+config_files = [
+  YAML.load_file(File.dirname(__FILE__) + "/config/database.mongo.yml")
+]
+
+config = {}
+config_files.each do |file|
+  file.each {|key, value| config[key] = value}
+end
 
 task:default => [:github_push, :heroku_deploy]
 
@@ -11,15 +21,17 @@ task :heroku_deploy => [:github_push] do
   sh 'git push heroku master'
 end
 
-# task :heroku_env => [:timezone] do
-#   #rankforce = YAML.load_file(File.dirname(__FILE__) + "/config/twitter.auth.yml")
-#   rankforce    = YAML.load_file(File.dirname(__FILE__) + "/config/twitter.auth.test.yml")
-#   evernote     = YAML.load_file(File.dirname(__FILE__) + "/config/evernote.auth.yml")
-#   config = rankforce.merge(evernote)
-#   config.each do |key, value|
-#     sh "heroku config:add #{key}=#{value}"
-#   end
-# end
+task :heroku_env => [:heroku_env_clean, :timezone] do
+  config.each do |key, value|
+    sh "heroku config:add #{key}=#{value}"
+  end
+end
+
+task :heroku_env_clean do
+  config.each do |key, value|
+    sh "heroku config:remove #{key}"
+  end
+end
 
 task :heroku_create do
   sh "heroku create --stack cedar rankforce4-web"
