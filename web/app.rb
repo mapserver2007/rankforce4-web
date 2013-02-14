@@ -24,17 +24,6 @@ get '/' do
   haml :index
 end
 
-get '/:board' do
-  @data = {
-    :board => params['board'],
-    :board_ja => board_to_ja(params['board']),
-    :limit => params['limit']
-  }.to_json
-  haml :index
-end
-
-# 全てのデータを返す
-# スレ作成日の降順ソート
 get '/rest/all' do
   json get_json(
     :limit      => params['limit'],
@@ -43,8 +32,6 @@ get '/rest/all' do
   )
 end
 
-# 板単位のデータを返す
-# スレ作成日の降順ソート
 get '/rest/:board' do
   json get_json_by_board(
     :board      => params['board'],
@@ -52,4 +39,8 @@ get '/rest/:board' do
     :sort_item  => params['sort_item'],
     :sort_order => params['sort_order']
   )
+end
+
+get '/rest/ja/:board' do
+  json :board_ja => (board_to_ja(params['board']) || "全ての板")
 end

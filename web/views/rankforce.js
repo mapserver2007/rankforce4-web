@@ -6,27 +6,41 @@
  *
  * Copyright 2011, Ryuichi TANAKA [mapserver2007@gmail.com]
  */
+Mixjs.module("Twitter", {
+    followButton: function() {
+        !function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");
+    }
+});
+
 Mixjs.module("RankForce", {
-    /** 依存モジュール */
-    include: Http,
+    include: [Http, Utils, Design],
+    cacheKey: "__GRAPH_DATA__",
 
-    run: function(params) {
-        var self = this,
-            params = params || {},
-            limit = Math.floor($(document).width() / 35);
-        if (!params.hasOwnProperty("board")) {
-            params["board"] = "all";
-        }
-
-        this.get({
-            board: params.board,
-            board_ja: params.board_ja,
-            limit: params.limit || limit,
-            callback: self.render_graph
+    events: function() {
+        var self = this;
+        $('a[data-toggle="tab"]').on('shown', function (e) {
+            var board = e.target.href.split("#")[1].replace("tab_", "");
+            self.render({board: board, board_ja: "dummy"})
         });
     },
 
-    render_graph: function(json, params) {
+    render: function(params) {
+        var self = this,
+            params = params || {},
+            limit = Math.floor($(document).width() / 35);
+
+        var graph = $("#" + params.board).html();
+        if (this.isBlank(graph)) {
+            this.get({
+                board: params.board,
+                board_ja: params.board_ja,
+                limit: params.limit || limit,
+                callback: self.renderGraph
+            });
+        }
+    },
+
+    renderGraph: function(json, params) {
         var self = this;
         var lineData = [],
             columnData = {
@@ -77,7 +91,7 @@ Mixjs.module("RankForce", {
         $(document).ready(function() {
             var chart = new Highcharts.Chart({
                 chart: {
-                    renderTo: "graph",
+                    renderTo: params.board,
                     defaultSeriesType: "line"
                 },
                 title: {
@@ -137,10 +151,40 @@ Mixjs.module("RankForce", {
     get: function(params) {
         var self = this;
         this.xhr({
-            url: "/rest/" + params.board,
-            params: {"limit": params.limit},
-            args: {type: "get", dataType: "json", args: params},
-            success: params.callback
+            url: "/rest/ja/" + params.board,
+            args: {type: "get"},
+            success: function(json) {
+                params.board_ja = json.board_ja;
+                self.xhr({
+                    url: "/rest/" + params.board,
+                    params: {"limit": params.limit},
+                    args: {type: "get", dataType: "json", args: params},
+                    success: params.callback,
+                    before: function() {
+                        self.showFilter({
+                            target: $("#tabbale"),
+                            color: "#000000",
+                            backgroundColor: "#ffffff",
+                            img: "/loading.gif",
+                            text: "now rendering..."
+                        })
+                    },
+                    after: function() {
+                        self.hideFilter();
+                    }
+                });
+            }
         });
     }
 });
+
+function rankforce_boot(data) {
+    var obj = RankForce.mix(Twitter);
+    obj.loadScript("/bootstrap/js/bootstrap.min.js", function() {
+        obj.events();
+        obj.hook("render", function() {
+            this.followButton();
+        });
+        obj.render({board: "all"});
+    });
+}

@@ -12,16 +12,54 @@
       %h3 @rankforce
       %div
         %a.twitter-follow-button{:href => "https://twitter.com/rankforce", 'data-show-count' => "false", 'data-lang' => "ja"}
-    %div#graph
-      %img#loading{:src => "/loading.gif"}
+    %div#tabbale
+      %ul.nav.nav-tabs
+        %li.active
+          %a{:href => "#tab_all", 'data-toggle' => "tab"} 全ての板
+        %li
+          %a{:href => "#tab_news", 'data-toggle' => "tab"} ニュース速報
+        %li
+          %a{:href => "#tab_newsplus", 'data-toggle' => "tab"} ニュース速報+
+        %li
+          %a{:href => "#tab_news4vip", 'data-toggle' => "tab"} ニュース速報VIP
+        %li
+          %a{:href => "#tab_poverty", 'data-toggle' => "tab"} ニュー速(嫌儲)
+        %li
+          %a{:href => "#tab_mnewsplus", 'data-toggle' => "tab"} 芸スポ速報+
+        %li
+          %a{:href => "#tab_bizplus", 'data-toggle' => "tab"} ビジネスnews+
+        %li
+          %a{:href => "#tab_wildplus", 'data-toggle' => "tab"} ニュース二軍+
+        %li
+          %a{:href => "#tab_liveplus", 'data-toggle' => "tab"} ニュース実況+
+
+      %div#graph_container.tab-content
+        %div#tab_all.tab-pane.active
+          %div#all.graph
+        %div#tab_news.tab-pane
+          %div#news.graph
+        %div#tab_newsplus.tab-pane
+          %div#newsplus.graph
+        %div#tab_news4vip.tab-pane
+          %div#news4vip.graph
+        %div#tab_poverty.tab-pane
+          %div#poverty.graph
+        %div#tab_mnewsplus.tab-pane
+          %div#mnewsplus.graph
+        %div#tab_bizplus.tab-pane
+          %div#bizplus.graph
+        %div#tab_news4plus.tab-pane
+          %div#news4plus.graph
+        %div#tab_wildplus.tab-pane
+          %div#wildplus.graph
+        %div#tab_liveplus.tab-pane
+          %div#liveplus.graph
+    
     %script{:type => 'text/javascript', :src => '/jquery.min.js'}
     %script{:type => 'text/javascript', :src => '/mix.js'}
     %script{:type => 'text/javascript', :src => '/mix.modules.js'}
     %script{:type => 'text/javascript', :src => '/highcharts.js'}
     %script{:type => 'text/javascript', :src => '/exporting.js'}
     %script{:type => 'text/javascript', :src => '/rankforce.js'}
-    %script{:type => 'type/javascript', :src => '/bootstrap/js/bootstrap.min.js'}
     %script{:type => 'text/javascript'}
-      RankForce.run(#{@data});
-    %script{:type => 'text/javascript'}
-      !function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");
+      rankforce_boot(#{@data});
