@@ -16,6 +16,14 @@ Mixjs.module("RankForce", {
     include: [Http, Utils, Design],
     cacheKey: "__GRAPH_DATA__",
 
+    setBoards: function(boards) {
+        this.boards = boards;
+    },
+
+    board_ja: function(board) {
+        return this.boards[board];
+    },
+
     events: function() {
         var self = this;
         $('a[data-toggle="tab"]').on('shown', function (e) {
@@ -150,36 +158,31 @@ Mixjs.module("RankForce", {
 
     get: function(params) {
         var self = this;
-        this.xhr({
-            url: "/rest/ja/" + params.board,
-            args: {type: "get"},
-            success: function(json) {
-                params.board_ja = json.board_ja;
-                self.xhr({
-                    url: "/rest/" + params.board,
-                    params: {"limit": params.limit},
-                    args: {type: "get", dataType: "json", args: params},
-                    success: params.callback,
-                    before: function() {
-                        self.showFilter({
-                            target: $("#tabbale"),
-                            color: "#000000",
-                            backgroundColor: "#ffffff",
-                            img: "/loading.gif",
-                            text: "now rendering..."
-                        })
-                    },
-                    after: function() {
-                        self.hideFilter();
-                    }
+        params.board_ja = this.board_ja(params.board);
+        self.xhr({
+            url: "/rest/" + params.board,
+            params: {"limit": params.limit},
+            args: {type: "get", dataType: "json", args: params},
+            success: params.callback,
+            before: function() {
+                self.showFilter({
+                    target: $("#tabbale"),
+                    color: "#000000",
+                    backgroundColor: "#ffffff",
+                    img: "/loading.gif",
+                    text: "now rendering..."
                 });
+            },
+            after: function(url) {
+                self.hideFilter();
             }
         });
     }
 });
 
-function rankforce_boot(data) {
+function rankforce_boot(boards) {
     var obj = RankForce.mix(Twitter);
+    obj.setBoards(boards);
     obj.loadScript("/bootstrap/js/bootstrap.min.js", function() {
         obj.events();
         obj.hook("render", function() {

@@ -17,10 +17,7 @@ get '/style.css' do
 end
 
 get '/' do
-  @data = {
-    :board_ja => "全ての板",
-    :limit => params['limit']
-  }.to_json
+  @boards = board_map.to_json
   haml :index
 end
 

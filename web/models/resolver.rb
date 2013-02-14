@@ -32,20 +32,22 @@ module RankForce
           .get
   end
 
-  def board_to_ja(str)
-    @en = []
-    @ja = []
+  def board_map
+    en = []
+    map = {}
     File::open("#{BOARD_ROOT}/#{BOARD_FILE_EN}") do |file|
       while l = file.gets
-        @en << l.strip
+        en << l.strip
       end
     end
     File::open("#{BOARD_ROOT}/#{BOARD_FILE_JA}") do |file|
+      idx = 0
       while l = file.gets
-        @ja << l.strip
+        map[en[idx]] = l.strip
+        idx += 1
       end
     end
-    i = @en.index(str)
-    i.nil? ? nil : @ja[i]
+    map[:all] = "全ての板"
+    map
   end
 end

@@ -592,7 +592,6 @@ Mixjs.module("Http", {
             errorCallback    = this.options.error;
 
         this.before();
-
         var jsonpCallback = args.jsonp || "callback";
         params[jsonpCallback] = "jsonp" + (~~(new Date() / 1000));
 
