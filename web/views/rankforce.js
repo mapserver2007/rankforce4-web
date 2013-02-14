@@ -14,7 +14,6 @@ Mixjs.module("Twitter", {
 
 Mixjs.module("RankForce", {
     include: [Http, Utils, Design],
-    cacheKey: "__GRAPH_DATA__",
 
     setBoards: function(boards) {
         this.boards = boards;
