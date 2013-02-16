@@ -172,7 +172,7 @@ Mixjs.module("RankForce", {
                     text: "now rendering..."
                 });
             },
-            after: function(url) {
+            after: function() {
                 self.hideFilter();
             }
         });
