@@ -1,6 +1,6 @@
 /**
  * mix.js
- * version: 0.5.3 (2013/02/14)
+ * version: 0.6.0 (2013/02/17)
  *
  * Licensed under the MIT:
  *   http://www.opensource.org/licenses/mit-license.php
@@ -30,6 +30,18 @@ var PROTOTYPE_CHAIN_TOKEN = 'd945f6fc3d7f10c65ad54a82d7e2a1b8';
 var PROTOTYPE_CHAIN_TOKEN_POSITION = 12;
 
 /**
+ * 初めてメソッドがコールされる直前に自動実行されるメソッド名
+ * @type {String}
+ */
+var INITIALIZE_PROPERTY = 'initialize';
+
+/**
+ * Mix-in後の自動実行されるメソッド名
+ * @type {String}
+ */
+var MIXED_PROPERTY = 'mixed';
+
+/**
  * 定義禁止のプロパティ名
  * @type {Array}
  */
@@ -43,10 +55,29 @@ var prohibits = ['mix',
                  '__moduleName__'];
 
 /**
+ * 予約済みのプロパティ名
+ * @type {Array}
+ */
+var reservations = [INITIALIZE_PROPERTY,
+                    MIXED_PROPERTY];
+
+/**
  * IE6,7,8かどうか
  * @type {Boolean}
  */
 var isIE678 = [,]!=0;
+
+/**
+ * Mixjsオブジェクトを格納する内部スコープ
+ * @type {Object}
+ */
+var innerScope = {};
+
+/**
+ * Mixjsオブジェクト判定用のベースモジュール
+ * @type {String}
+ */
+var ATOMIC_MODULE = 'AtomicModule';
 
 /**
  * Mixjsオブジェクトかどうか検出する
@@ -55,12 +86,11 @@ var isIE678 = [,]!=0;
  */
 var isMixjsModule = function(obj) {
     if (typeof obj !== 'object') return false;
-    var scope = {};
-    Mixjs.module('Dummy', scope, {});
-    return typeof obj['mix'] !== 'undefined' &&
-           typeof obj['has'] !== 'undefined' &&
-           obj.mix.toString() === scope.Dummy.mix.toString() &&
-           obj.has.toString() === scope.Dummy.has.toString();
+    var atomicModule = innerScope[ATOMIC_MODULE];
+    return typeof obj.mix !== 'undefined' &&
+           typeof obj.has !== 'undefined' &&
+           obj.mix.toString() === atomicModule.mix.toString() &&
+           obj.has.toString() === atomicModule.has.toString();
 };
 
 /**
@@ -94,14 +124,14 @@ var append = function(core, base) {
 
 /**
  * オブジェクトをディープコピーする
- * @param {Object} o コピー元オブジェクト
+ * @param {Object|Array} o コピー元オブジェクト
  * @returns {Object} コピー後オブジェクト
  */
 var clone = function(o) {
     var c, prop;
     o = o || {};
     if (isIE678) {
-        c = {};
+        c = o instanceof Array ? [] : {};
         for (prop in o) if (o.hasOwnProperty(prop)) {
             c[prop] = o[prop];
         }
@@ -145,13 +175,22 @@ var isMixjsCoreModule = function(obj) {
 
 /**
  * フック処理を実行する
- * @param {Srting} フック対象のメソッド名
- * @param {Function} フック時に実行する関数
- * @param {Boolean} フックを親方向に連鎖的に検索するかどうか
+ * @param {Srting} prop フック対象のメソッド名
+ * @param {Function} callback フック時に実行する関数
+ * @param {Boolean} isChain フックを親方向に連鎖的に検索するかどうか
  */
 var hook = function(prop, callback, isChain) {
-    var self = this;
-    if (inArray(prop, prohibits) !== -1) {
+    var self = this, queue = {};
+    var hasKey = function(key, hash) {
+        for (var str in hash) {
+            if (("#" + str).indexOf(key) !== -1) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (inArray(prop, prohibits) !== -1 || inArray(prop, reservations) !== -1) {
         throw new Error("'" + prop + "' can't be hooking.");
     }
     // isChain=trueの場合、hookのレシーバを親方向に辿り、マッチするメソッド全てをフックする
@@ -159,39 +198,55 @@ var hook = function(prop, callback, isChain) {
     // 一致した場合のみフック処理を実行する
     while (typeof self !== 'undefined') {
         for (var func in self) if (self.hasOwnProperty(func)) {
-            if ((typeof prop === 'string' && func === prop) ||
-                (typeof prop === 'object' && prop.test(func))) {
-                    pushHookStack(self, func, callback, isChain === true);
+            if (inArray(func, prohibits) !== -1 || inArray(func, reservations) !== -1) {
+                continue;
+            }
+
+            var _prop = prop;
+            if (typeof prop === 'object' && prop.test(func)) {
+                _prop = func;
+            }
+
+            if (typeof _prop !== 'string' || func !== _prop) {
+                continue;
+            }
+
+            if (self.hasOwnProperty(_prop)) {
+                if ((isIE678 && !isCopied(self[_prop]) || !isIE678) && (!hasKey(func, queue) || isChain === true)) {
+                    queue[self.__moduleName__ + "#" + func] = {
+                        receiver: self,
+                        prop: func
+                    };
+                }
             }
         }
-        // isChain=trueでない場合、最初にマッチしたメソッドのみフックするので抜ける
-        if (isChain !== true) return;
+
         self = self.parent;
+    }
+
+    for (prop in queue) {
+        pushHookStack(queue[prop].receiver, queue[prop].prop, callback);
     }
 };
 
 /**
  * フック処理に必要なパラメータをセットする
- * @param {MixjsObject} hookメソッド実行時のレシーバ
- * @param {Srting} フック対象のメソッド名
- * @param {Function} フック時に実行する関数
- * @param {Boolean} フックを親方向に連鎖的に検索するかどうか
+ * @param {MixjsObject} receiver hookメソッド実行時のレシーバ
+ * @param {Srting} prop フック対象のメソッド名
+ * @param {Function} callback フック時に実行する関数
  */
-var pushHookStack = function(receiver, prop, callback, isChain) {
+var pushHookStack = function(receiver, prop, callback) {
     var self = receiver;
     // IE678の場合、始祖に対して__hookStack__を作成する
     if (isIE678) {
-        while (self.hasOwnProperty('parent')) {
-            self = self.parent;
-        }
+        self = readAncestor(self);
     }
     if (typeof self.__hookStack__[prop] === 'undefined') {
         self.__hookStack__[prop] = [];
     }
     self.__hookStack__[prop].push({
         receiver: receiver,
-        callback: callback,
-        isChain: isChain
+        callback: callback
     });
 };
 
@@ -213,9 +268,7 @@ var methodHook = function(prop, f) {
         if (isIE678) {
             // IE678の場合はプロトタイプチェーンで辿れないので
             // 明示的に始祖まで辿る
-            while (self.hasOwnProperty('parent')) {
-                self = self.parent;
-            }
+            self = readAncestor(self);
             // IE678の場合、同じ名前のメソッド(中身は違うが)が各子供へコピーされているため、
             // 単純にparentを辿るだけだと実体レシーバを取得できない
             // コピーされたメソッドの中身はラップ関数で、トークンが埋めこまれているのでそれを検知する
@@ -231,21 +284,18 @@ var methodHook = function(prop, f) {
             }
         }
 
-        var hookInfo = self.__hookStack__[prop];
-
+        var hookInfo = clone(self.__hookStack__[prop]);
         if (hookInfo instanceof Array) {
             for (var i = 0; i < hookInfo.length; i++) {
                 var receiver = hookInfo[i].receiver,
-                    callback = hookInfo[i].callback,
-                    isChain  = hookInfo[i].isChain;
-                if (receiver === target) {
-                    callback.apply(receiver, arguments);
-                    if (!isChain) break;
+                    callback = hookInfo[i].callback;
+                if (receiver.__moduleName__ === target.__moduleName__) {
+                    callback.apply(target, arguments);
                 }
             }
         }
 
-        return f.apply(this, arguments);
+        return f.apply(target, arguments);
     };
 };
 
@@ -295,7 +345,7 @@ var isCyclic = function(obj) {
 
 /**
  * 親からコピーされた関数であるかどうか(IE6,7,8のみ使用)
- * @param {Function} 対象関数
+ * @param {Function} func 対象関数
  * @return {Boolean} 検証結果
  */
 var isCopied = function(func) {
@@ -305,7 +355,7 @@ var isCopied = function(func) {
 /**
  * 配列から重複する要素を取り除く
  * @param {Array} ary 対象配列
- * @returns {Array} 重複する要素を取り除いた配列
+ * @return {Array} 重複する要素を取り除いた配列
  */
 var uniq = function(ary){
     var o = {}, a = [];
@@ -318,10 +368,14 @@ var uniq = function(ary){
     return a;
 };
 
+var reverseUniq = function(ary) {
+    return uniq(ary.reverse()).reverse();
+};
+
 /**
  * include対象でないオブジェクトかどうか検出する
  * @param {Object} obj 対象オブジェクト
- * @returns {Boolean}
+ * @return {Boolean} 検出結果
  */
 var isIncludeError = function(obj) {
     return typeof obj !== 'object' || (typeof obj === 'object' && !isMixjsModule(obj));
@@ -339,6 +393,18 @@ var implement = function(base, module) {
 };
 
 /**
+ * 親を再帰的に辿る(IE678で使用)
+ * @param {MixjsObject} obj Mixjsオブジェクト
+ * @return {MixjsObject} 始祖のMixjsオブジェクト
+ */
+var readAncestor = function(obj) {
+    while (obj.hasOwnProperty('parent')) {
+        obj = obj.parent;
+    }
+    return obj;
+};
+
+/**
  * 同じオブジェクトかどうか検出する
  * @param {Object} base Interfaceモジュール
  * @param {Object} module 定義モジュール
@@ -351,6 +417,10 @@ var isSameObject = function(o1, o2) {
 
     var isSame = false;
     for (var prop in o1) if (o1.hasOwnProperty(prop)) {
+        // メソッドのみ検査対象とする
+        if (typeof o1[prop] !== 'function') {
+            continue;
+        }
         // 定義禁止プロパティは検査対象外
         if (inArray(prop, prohibits) !== -1) {
             continue;
@@ -369,6 +439,48 @@ var isSameObject = function(o1, o2) {
     }
 
     return isSame;
+};
+
+/**
+ * Mixjsオブジェクトを生成する
+ * @param {Object} module 定義モジュール
+ */
+var createModule = function(module) {
+    for (var prop in module) {
+        if (module.hasOwnProperty(prop) && inArray(prop, prohibits) === -1 && inArray(prop, reservations) === -1) {
+            module.hook(prop, function() {
+                var hookStack, hookedProp, i;
+                var receiver = this;
+                var base = receiver.hasOwnProperty('base') ? receiver.base : receiver;
+                if (receiver.hasOwnProperty(INITIALIZE_PROPERTY)) {
+                    // initializeメソッドを実行
+                    receiver[INITIALIZE_PROPERTY].apply(receiver, arguments);
+                    hookStack = isIE678 ? readAncestor(base).__hookStack__ : base.__hookStack__;
+                    // initialize用のhookを全て解除
+                    for (hookedProp in hookStack) if (hookStack.hasOwnProperty(hookedProp)) {
+                        for (i = 0; i < hookStack[hookedProp].length; i++) {
+                            if (receiver.__moduleName__ === hookStack[hookedProp][i].receiver.__moduleName__) {
+                                // initializeを実行したレシーバに属するhookを解除する
+                                // 0番目にセットされたhookオブジェクトが必ずinitialize用hookになるため、
+                                // 0番目を固定で削除する
+                                hookStack[hookedProp].splice(0, 1);
+                                break;
+                            }
+                        }
+                        // 空になったhook配列自体を削除
+                        if (isIE678) {
+                            receiver = readAncestor(receiver);
+                        }
+                        if (receiver.__hookStack__[hookedProp].length === 0) {
+                            delete receiver.__hookStack__[hookedProp];
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    return module;
 };
 
 /**
@@ -469,6 +581,12 @@ Mixjs.module = function() {
     base.__moduleName__ = arguments[0];
 
     /**
+     * ベースオブジェクト
+     * @type {String}
+     */
+    core.base = append(core, base);
+
+    /**
      * フックメソッド
      * @type {Function}
      */
@@ -489,25 +607,20 @@ Mixjs.module = function() {
     core.has = function(parent) {
         var child = clone(this);
 
-        // 親がmix-in済みの場合分離する
-        var parents = [parent];
-        while (parent.hasOwnProperty('parent')) {
-            parent = parent.parent;
-            parents.push(parent);
-            if (!parent.hasOwnProperty('parent')) {
-                break;
+        var ancestors = function(obj) {
+            var objList = [obj];
+            while (obj.hasOwnProperty('parent')) {
+                obj = obj.parent;
+                objList.push(obj);
+                if (!obj.hasOwnProperty('parent')) {
+                    break;
+                }
             }
-        }
+            return objList;
+        };
 
-        // 子(自身)がmix-in済みな場合分離する
-        var children = [child];
-        while (child.hasOwnProperty('parent')) {
-            child = child.parent;
-            children.push(child);
-            if (!child.hasOwnProperty('parent')) {
-                break;
-            }
-        }
+        var parents = ancestors(parent),
+            children = ancestors(child);
 
         // 子 >= 親でなければ[子has親]の関係は成り立たない
         // 包含関係にあっても、所有関係になければhasは成り立たないとみなす
@@ -549,25 +662,20 @@ Mixjs.module = function() {
     core.equal = function(parent) {
         var child = clone(this);
 
-        // 親がmix-in済みの場合分離する
-        var parents = [parent];
-        while (parent.hasOwnProperty('parent')) {
-            parent = parent.parent;
-            parents.push(parent);
-            if (!parent.hasOwnProperty('parent')) {
-                break;
+        var ancestors = function(obj) {
+            var objList = [obj];
+            while (obj.hasOwnProperty('parent')) {
+                obj = obj.parent;
+                objList.push(obj);
+                if (!obj.hasOwnProperty('parent')) {
+                    break;
+                }
             }
-        }
+            return objList;
+        };
 
-        // 子(自身)がmix-in済みな場合分離する
-        var children = [child];
-        while (child.hasOwnProperty('parent')) {
-            child = child.parent;
-            children.push(child);
-            if (!child.hasOwnProperty('parent')) {
-                break;
-            }
-        }
+        var parents = ancestors(parent),
+            children = ancestors(child);
 
         // 子 != 親でなければ[子equal親]の関係は成り立たない
         if (children.length !== parents.length) {
@@ -590,10 +698,32 @@ Mixjs.module = function() {
      */
     core.mix = (function() {
         /**
+         * Mix-in時にメソッドを実行する
+         * @param {MixjsObject} self Mix-in前のモジュール
+         * @param {MixjsObject} base Mix-in済みモジュール
+         * @param {Array} Mix-inするモジュール
+         */
+        var mixed = function(self, base, modules) {
+            // Mix-inしたモジュールのinitializeメソッドを実行
+            for (var i = 0; i < modules.length; i++) {
+                var module = modules[i];
+                var _base = base;
+                if (!self.has(module) && module.hasOwnProperty(MIXED_PROPERTY)) {
+                    while (typeof _base !== 'undefined') {
+                        if (_base.__moduleName__ === module.__moduleName__) {
+                            _base[MIXED_PROPERTY].call(_base);
+                        }
+                        _base = _base.parent;
+                    }
+                }
+            }
+        };
+
+        /**
          * レガシーブラウザ(IE6,7,8)向けMix-in処理
          */
         var legacyMix = function() {
-            var ancestors = [], parents = [], child = clone(this), i;
+            var ancestors = [], parents = [], child = clone(this), hookStack = {}, prop, i;
             parents.push.apply(parents, arguments);
             parents = uniq(parents);
             ancestors.push(child);
@@ -614,8 +744,8 @@ Mixjs.module = function() {
                 // 自分の祖先が持っているメソッドを子供に受け継がせる
                 // ただし実体をコピーするのではなく、親への参照をラップした関数をコピーする
                 for (;;) {
-                    for (var prop in p) if (!c.hasOwnProperty(prop)) {
-                        if (inArray(prop, prohibits) === -1 && !c.hasOwnProperty(prop)) {
+                    for (prop in p) if (!c.hasOwnProperty(prop)) {
+                        if (inArray(prop, prohibits) === -1) {
                             if (typeof p[prop] === 'function') {
                                 c[prop] = (function(p, c, prop) {
                                     // 受け継ぐメソッドの実体レシーバまで辿る
@@ -650,13 +780,29 @@ Mixjs.module = function() {
             if (isCyclic(child)) {
                 throw new Error("The module cyclic reference error.");
             }
-            while (child.hasOwnProperty('parent')) {
+
+            // hookStackの内容を統合
+            while (typeof child !== 'undefined') {
                 if (child.hasOwnProperty('__hookStack__')) {
-                    delete child.__hookStack__;
+                    for (prop in child.__hookStack__) if (child.hasOwnProperty(prop)) {
+                        if (hookStack.hasOwnProperty(prop)) {
+                            hookStack[prop] = hookStack[prop].concat(child.__hookStack__[prop]);
+                        }
+                        else {
+                            hookStack[prop] = child.__hookStack__[prop];
+                        }
+                    }
+                    if (child.hasOwnProperty('parent')) {
+                        delete child.__hookStack__;
+                    }
+                    else {
+                        child.__hookStack__ = hookStack;
+                    }
                 }
                 child = child.parent;
             }
-            child.__hookStack__ = {};
+
+            mixed(this, ancestors[0], arguments);
 
             return ancestors[0];
         };
@@ -665,26 +811,35 @@ Mixjs.module = function() {
          * モダンブラウザ向けMix-in処理
          */
         var modernMix = function() {
-            var child, i, c, p, obj;
-            var modules = [this], ancestors = [];
+            var child, i, c, p, prop, obj;
+            var modules = [this], ancestors = [], hookStack = {};
             modules.push.apply(modules, arguments);
-            
+
             // すべてのモジュールに対して若い世代から順にバラしてancestorsに格納する
             for (i = 0; i < modules.length; i++) {
                 child = modules[i];
+                // Mix-in対象のモジュールの__hookStack__をマージ
+                for (prop in child) if (child.hasOwnProperty(prop)) {
+                    if (typeof child.__hookStack__[prop] !== 'undefined') {
+                        hookStack[prop] = hookStack[prop] || [];
+                        hookStack[prop] = hookStack[prop].concat(child.__hookStack__[prop]);
+                    }
+                }
                 while (Object.getPrototypeOf(child) && !isMixjsCoreModule(child)) {
                     ancestors.push(child);
                     child = Object.getPrototypeOf(child);
                 }
             }
+
+            core.__hookStack__ = hookStack;
             
             ancestors = uniq(ancestors);
             ancestors.push(core);
-            
+
             for (i = ancestors.length - 1; i > 0; i--) {
                 p = ancestors[i], c = ancestors[i-1];
                 obj = Object.create(p);
-                for (var prop in c) if (c.hasOwnProperty(prop)) {
+                for (prop in c) if (c.hasOwnProperty(prop)) {
                     obj[prop] = c[prop];
                 }
                 if (!isMixjsCoreModule(p)) {
@@ -695,20 +850,22 @@ Mixjs.module = function() {
 
             core.base = child = ancestors[0];
             core.hook = hook;
-            
+            mixed(this, child, arguments);
+
             return child;
         };
 
         return isIE678 ? legacyMix : modernMix;
     })();
-    
-    var module = append(core, base);
+
+    var module = createModule(core.base);
+    module = isInclude ? include(module, modules) : module;
 
     if (MODULE_DEFINE_WITH_NAME) {
-        window[name] = isInclude ? include(module, modules) : module;
+        window[name] = module;
     }
     else if (MODULE_DEFINE_WITH_NAME_AND_SCOPE) {
-        arguments[1][name] = isInclude ? include(module, modules) : module;
+        arguments[1][name] = module;
     }
 };
 
@@ -722,13 +879,13 @@ Mixjs.module = function() {
  * @returns {Object} Mixjs
  */
 Mixjs.interface = function() {
-    var obj = {}, base;
+    var obj = {}, base, prop;
     for (var i = 0, len = arguments.length; i < len; i++) {
         base = arguments[i];
         if (!isMixjsModule(base)) {
             throw new Error("Arguments must be mixjs module object.");
         }
-        for (var prop in base) if (inArray(prop, prohibits) === -1) {
+        for (prop in base) if (inArray(prop, prohibits) === -1) {
             obj[prop] = base[prop];
         }
     }
@@ -736,5 +893,10 @@ Mixjs.interface = function() {
     
     return this;
 };
+
+/**
+ * 比較に使用するベースモジュール
+ */
+Mixjs.module(ATOMIC_MODULE, innerScope, {});
 
 })(window);

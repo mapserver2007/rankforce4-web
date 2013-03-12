@@ -1,6 +1,6 @@
 /*
  * mix.modules.js
- * version: 0.1.20 (2013/02/14)
+ * version: 0.1.22 (2013/03/12)
  *
  * Licensed under the MIT:
  *   http://www.opensource.org/licenses/mit-license.php
@@ -15,7 +15,7 @@ Mixjs.module("Utils", {
     /**
      * jQueryバージョン
      */
-    latestJQueryVersion_: "1.8.3",
+    latestJQueryVersion_: "1.9.1",
 
     /**
      * ホスティングjQueryを開く
@@ -23,9 +23,9 @@ Mixjs.module("Utils", {
      * @param {String} optVersion バージョン
      */
     loadJQuery: function(callback, optVersion) {
-        var url = "https://ajax.googleapis.com/ajax/libs/jquery/"
-            + (optVersion || this.latestJQueryVersion_)
-            + "/jquery.min.js";
+        var url = "https://ajax.googleapis.com/ajax/libs/jquery/" +
+            (optVersion || this.latestJQueryVersion_) +
+            "/jquery.min.js";
         this.loadScript(url, callback);
     },
 
@@ -47,7 +47,7 @@ Mixjs.module("Utils", {
                         if (this.readyState == 'loaded' || this.readyState == 'complete') {
                             callback();
                         }
-                    }
+                    };
                 }
                 // for modern browsers
                 else {
@@ -69,7 +69,9 @@ Mixjs.module("Utils", {
             this.loadJQuery(callback);
         }
         else {
-            callback();
+            if (typeof callback === 'function') {
+                callback();
+            }
         }
     },
 
@@ -169,7 +171,7 @@ Mixjs.module("Utils", {
      * @return {Number} バイトサイズ    
      */
     bytesize: function(str) {
-        return unescape(encodeURIComponent(str)).length
+        return unescape(encodeURIComponent(str)).length;
     },
 
     /**
@@ -492,7 +494,7 @@ Mixjs.module("Design", {
  */
 Mixjs.module("Cache", {
     /** 依存モジュール */
-    include: [Utils, Cookie],
+    include: [Cookie, Utils],
 
     /**
      * Cacheを設定する
@@ -518,15 +520,57 @@ Mixjs.module("Cache", {
 });
 
 /**
+ * HTTP Deferedモジュール
+ */
+Mixjs.module("HttpDeferred", {
+    /** 依存モジュール */
+    include: Utils,
+
+    /** イベントキュー */
+    __EVENT_QUEUE__: [],
+
+    /**
+     * xhrリクエストをセットする
+     * @param Object xhrリクエスト
+     */
+    deferredEvent: function(event) {
+        this.__EVENT_QUEUE__.push(event);
+    },
+
+    /**
+     * xhrリクエストを同期的に実行する
+     */
+    deferrdFire: function() {
+        if (this.isBlank(this.__EVENT_QUEUE__)) {
+            return;
+        }
+        var self = this, event = this.__EVENT_QUEUE__.shift();
+        this.onLoadJQuery(function() {
+            if (parseFloat(jQuery().jquery) < 1.5) {
+                throw new Error("jQuery(1.5 or higher) is required.");
+            }
+            jQuery.Deferred(function(dfd) {
+                event.resolve = dfd.resolve;
+                self.base.ajax(event);
+            })
+            .promise()
+            .then(function() {
+                self.deferrdFire();
+            });
+        });
+    }
+});
+
+/**
  * HTTPモジュール
  */
 Mixjs.module("Http", {
     /** 依存ライブラリ */
-    include: Utils,
+    include: [HttpDeferred, Utils],
 
     /**
      * 非同期通信を実行する
-     * @param {Object} options オプション
+     * @param {Object|Array} options オプション
      * @example
      *   options.url     送信先URL
      *   options.params  送信パラメータ
@@ -537,45 +581,64 @@ Mixjs.module("Http", {
      *   options.after   処理完了後に実行する関数
      */
     xhr: function(options) {
-        this.options = options;
-        var args = options.args || {};
-        if (args.dataType === "jsonp") {
-            this.jsonp();
+        var option, args;
+        if (!(options instanceof Array)) {
+            options = [options];
         }
-        else {
-            this.ajax();
+        for (var i = 0; i < options.length; i++) {
+            option = options[i];
+            args = option.args || {};
+            if (option.deferred === true) {
+                delete option.deferred;
+                this.deferredEvent(option);
+            }
+            else {
+                if (args.dataType === "jsonp") {
+                    this.jsonp(option);
+                }
+                else {
+                    this.ajax(option);
+                }
+            }
         }
+        this.deferrdFire();
     },
 
     /**
      * 非同期通信を実行する
+     * @param {Object} option オプション
      */
-    ajax: function() {
+    ajax: function(option) {
         var self = this;
-        var url              = this.options.url,
-            params           = this.options.params || {},
-            args             = this.options.args || {},
-            successCallback  = this.options.success,
-            errorCallback    = this.options.error;
+        var url             = option.url,
+            params          = option.params || {},
+            args            = option.args || {},
+            successCallback = option.success,
+            errorCallback   = option.error,
+            beforeCallback  = option.before,
+            afterCallback   = option.after,
+            resolveCallback = option.resolve;
 
         this.onLoadJQuery(function() {
-            $.ajax({
+            jQuery.ajax({
                 type: args.type || "post",
                 dataType: args.dataType || "json",
                 data: params,
                 cache: args.cache || true,
                 beforeSend: function() {
-                    self.before();
+                    self.functionCaller(beforeCallback, args);
                 },
                 url: url
             })
             .done(function(data, dataType) {
                 self.success(successCallback, data, args.args);
-                self.after();
             })
             .fail(function(XMLHttpRequest, textStatus, errorThrown) {
                 self.error(errorCallback, textStatus, errorThrown);
-                self.after();
+            })
+            .always(function() {
+                self.functionCaller(afterCallback, args);
+                self.functionCaller(resolveCallback);
             });
         });
     },
@@ -583,15 +646,18 @@ Mixjs.module("Http", {
     /**
      * エラー処理可能なJSONPを実行する
      */
-    jsonp: function() {
+    jsonp: function(option) {
         var self = this;
-        var url              = this.options.url,
-            params           = this.options.params || {},
-            args             = this.options.args || {},
-            successCallback  = this.options.success,
-            errorCallback    = this.options.error;
+        var url              = option.url,
+            params           = option.params || {},
+            args             = option.args || {},
+            successCallback  = option.success,
+            errorCallback    = option.error,
+            beforeCallback   = option.before,
+            afterCallback    = option.after;
 
-        this.before();
+        this.functionCaller(beforeCallback, args);
+
         var jsonpCallback = args.jsonp || "callback";
         params[jsonpCallback] = "jsonp" + (~~(new Date() / 1000));
 
@@ -603,7 +669,7 @@ Mixjs.module("Http", {
 
         var qlist = [];
         for (var key in params) { qlist.push(key + "=" + params[key]); }
-        var requestURL = url + "?" + qlist.join("&")
+        var requestURL = url + "?" + qlist.join("&");
 
         var remove = function() {
             var elem = document.getElementById(jsonpCallback);
@@ -619,7 +685,7 @@ Mixjs.module("Http", {
             else if (typeof errorCallback !== "undefined") {
                 self.error(errorCallback, null, args.args);
             }
-            self.after();
+            self.functionCaller(afterCallback, args);
             remove();
         };
 
@@ -635,20 +701,20 @@ Mixjs.module("Http", {
                     if (typeof errorCallback !== "undefined") {
                         self.error(errorCallback, null, args);
                     }
+                    self.functionCaller(afterCallback, args);
                     remove();
-                    self.after();
                     return;
                 }
-            }, args.timeout)
+            }, args.timeout);
         }
 
         // cache
-        var setCache = function(key, value, options) {
+        var setCache = function(key, value, option) {
             if (args.cache === true) {
                 if (!isEnableCache()) {
-                    throw new Error("require Cache module.")
+                    throw new Error("require Cache module.");
                 }
-                self.setCache(key, value, options);
+                self.setCache(key, value, option);
             }
         };
 
@@ -656,12 +722,12 @@ Mixjs.module("Http", {
             var data = null;
             if (args.cache === true) {
                 if (!isEnableCache()) {
-                    throw new Error("require Cache module.")
+                    throw new Error("require Cache module.");
                 }
                 data = self.getCache(key);
             }
             return data;
-        }
+        };
 
         // キャッシュが有効で、データがキャッシュされている場合
         if (getCache(url)) {
@@ -674,7 +740,7 @@ Mixjs.module("Http", {
                     if (this.readyState === "complete") {
                         onload();
                     }
-                }
+                };
             }
             // for modern browsers
             else {
@@ -682,10 +748,10 @@ Mixjs.module("Http", {
             }
 
             doc.open();
-            doc.write('<script type="text/javascript">'
-                + 'function ' + params[jsonpCallback] + '(response) { document["jsonObject"] = response; }'
-                + '</script>'
-                + '<script type="text/javascript" src="' + requestURL + '"></script>');
+            doc.write('<script type="text/javascript">' +
+                'function ' + params[jsonpCallback] + '(response) { document["jsonObject"] = response; }' +
+                '</script>' +
+                '<script type="text/javascript" src="' + requestURL + '"></script>');
             doc.close();
         }
     },
@@ -707,12 +773,12 @@ Mixjs.module("Http", {
 
     /**
      * 指定した関数を実行する
-     * @param {Function} f    関数
-     * @param {Object}   args 関数に渡す引数
+     * @param {Function} callback 関数
+     * @param {Object}   args     関数に渡す引数
      */
-    functionCaller: function(f, args) {
-        if (typeof f === "function") {
-            f.call(null, args);
+    functionCaller: function(callback, args) {
+        if (typeof callback === "function") {
+            callback.call(this, args);
         }
     },
 
@@ -734,23 +800,5 @@ Mixjs.module("Http", {
      */
     error: function(callback, response, args) {
         this.callbackCaller(callback, response, args);
-    },
-
-    /**
-     * 通信開始前に処理を実行する
-     */
-    before: function() {
-        if (typeof this.options.before === 'function') {
-            this.functionCaller(this.options.before, this.options.args);
-        }
-    },
-
-    /**
-     * 通信終了後に処理を実行する
-     */
-    after: function() {
-        if (typeof this.options.after === 'function') {
-            this.functionCaller(this.options.after, this.options.args);
-        }
     }
 });

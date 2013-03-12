@@ -41,8 +41,7 @@ Mixjs.module("RankForce", {
             this.get({
                 board: params.board,
                 board_ja: params.board_ja,
-                limit: params.limit || limit,
-                callback: self.renderGraph
+                limit: params.limit || limit
             });
         }
     },
@@ -65,7 +64,7 @@ Mixjs.module("RankForce", {
                 name: data.title,
                 url: data.url,
                 y: data.ikioi.average
-            }
+            };
             // column
             columnData["min"][i] = {
                 name: data.title,
@@ -161,8 +160,10 @@ Mixjs.module("RankForce", {
         self.xhr({
             url: "/rest/" + params.board,
             params: {"limit": params.limit},
-            args: {type: "get", dataType: "json", args: params},
-            success: params.callback,
+            args: {type: "get", dataType: "json"},
+            success: function(response) {
+                self.renderGraph(response, params);
+            },
             before: function() {
                 self.showFilter({
                     target: $("#tabbale"),
