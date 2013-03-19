@@ -485,7 +485,7 @@ Mixjs.module("Design", {
      */
     hideFilter: function(optFilterId) {
         var _filter = document.getElementById(optFilterId || this.filterId);
-        if (_filter.hasOwnProperty("parentNode")) {
+        if (_filter) {
             _filter.parentNode.removeChild(_filter);
         }
     }
