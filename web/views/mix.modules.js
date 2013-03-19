@@ -485,7 +485,9 @@ Mixjs.module("Design", {
      */
     hideFilter: function(optFilterId) {
         var _filter = document.getElementById(optFilterId || this.filterId);
-        _filter.parentNode.removeChild(_filter);
+        if (_filter.hasOwnProperty("parentNode")) {
+            _filter.parentNode.removeChild(_filter);
+        }
     }
 });
 

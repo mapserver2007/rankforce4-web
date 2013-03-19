@@ -66,23 +66,23 @@ Mixjs.module("RankForce", {
                 y: data.ikioi.average
             };
             // column
-            columnData["min"][i] = {
+            columnData.min[i] = {
                 name: data.title,
                 y: data.ikioi.min
             };
-            columnData["average"][i] = {
+            columnData.average[i] = {
                 name: data.title,
                 y: data.ikioi.average
             };
-            columnData["max"][i] = {
+            columnData.max[i] = {
                 name: data.title,
                 y: data.ikioi.max
             };
             // idList
-            idList[i] = data["_id"]["$oid"];
+            idList[i] = data._id.$oid;
             // dateList
-            if (i % 2 == 0) {
-                var dateTime = data["date"]["created_at"].split(" ");
+            if (i % 2 === 0) {
+                var dateTime = data.date.created_at.split(" ");
                 var day = dateTime[0].split("-");
                 day = day[1] + "/" + day[2];
                 var time = dateTime[1].split(":");
@@ -93,7 +93,255 @@ Mixjs.module("RankForce", {
                 dateList[i] = "";
             }
         }
-        
+
+        Highcharts.setOptions({
+           colors: ["#DDDF0D", "#55BF3B", "#DF5353", "#7798BF", "#aaeeee", "#ff0066", "#eeaaee",
+              "#55BF3B", "#DF5353", "#7798BF", "#aaeeee"],
+           chart: {
+              backgroundColor: '#000000',
+              className: 'dark-container',
+              plotBackgroundColor: 'rgba(255, 255, 255, .1)',
+              plotBorderColor: '#CCCCCC',
+              plotBorderWidth: 1
+           },
+           title: {
+              style: {
+                 color: '#C0C0C0',
+                 font: 'bold 16px "Trebuchet MS", Verdana, sans-serif'
+              }
+           },
+           subtitle: {
+              style: {
+                 color: '#666666',
+                 font: 'bold 12px "Trebuchet MS", Verdana, sans-serif'
+              }
+           },
+           xAxis: {
+              gridLineColor: '#333333',
+              gridLineWidth: 1,
+              labels: {
+                 style: {
+                    color: '#A0A0A0'
+                 }
+              },
+              lineColor: '#A0A0A0',
+              tickColor: '#A0A0A0',
+              title: {
+                 style: {
+                    color: '#CCC',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
+                    fontFamily: 'Trebuchet MS, Verdana, sans-serif'
+
+                 }
+              }
+           },
+           yAxis: {
+              gridLineColor: '#333333',
+              labels: {
+                 style: {
+                    color: '#A0A0A0'
+                 }
+              },
+              lineColor: '#A0A0A0',
+              minorTickInterval: null,
+              tickColor: '#A0A0A0',
+              tickWidth: 1,
+              title: {
+                 style: {
+                    color: '#CCC',
+                    fontWeight: 'bold',
+                    fontSize: '12px',
+                    fontFamily: 'Trebuchet MS, Verdana, sans-serif'
+                 }
+              }
+           },
+           tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              style: {
+                 color: '#F0F0F0'
+              }
+           },
+           toolbar: {
+              itemStyle: {
+                 color: 'silver'
+              }
+           },
+           plotOptions: {
+              line: {
+                 dataLabels: {
+                    color: '#CCC'
+                 },
+                 marker: {
+                    lineColor: '#333'
+                 }
+              },
+              spline: {
+                 marker: {
+                    lineColor: '#333'
+                 }
+              },
+              scatter: {
+                 marker: {
+                    lineColor: '#333'
+                 }
+              },
+              candlestick: {
+                 lineColor: 'white'
+              }
+           },
+           legend: {
+              itemStyle: {
+                 font: '9pt Trebuchet MS, Verdana, sans-serif',
+                 color: '#A0A0A0'
+              },
+              itemHoverStyle: {
+                 color: '#FFF'
+              },
+              itemHiddenStyle: {
+                 color: '#444'
+              }
+           },
+           credits: {
+              style: {
+                 color: '#666'
+              }
+           },
+           labels: {
+              style: {
+                 color: '#CCC'
+              }
+           },
+
+           navigation: {
+              buttonOptions: {
+                 backgroundColor: {
+                    linearGradient: [0, 0, 0, 20],
+                    stops: [
+                       [0.4, '#606060'],
+                       [0.6, '#333333']
+                    ]
+                 },
+                 borderColor: '#000000',
+                 symbolStroke: '#C0C0C0',
+                 hoverSymbolStroke: '#FFFFFF'
+              }
+           },
+
+           exporting: {
+              buttons: {
+                 exportButton: {
+                    symbolFill: '#55BE3B'
+                 },
+                 printButton: {
+                    symbolFill: '#7797BE'
+                 }
+              }
+           },
+
+           // scroll charts
+           rangeSelector: {
+              buttonTheme: {
+                 fill: {
+                    linearGradient: [0, 0, 0, 20],
+                    stops: [
+                       [0.4, '#888'],
+                       [0.6, '#555']
+                    ]
+                 },
+                 stroke: '#000000',
+                 style: {
+                    color: '#CCC',
+                    fontWeight: 'bold'
+                 },
+                 states: {
+                    hover: {
+                       fill: {
+                          linearGradient: [0, 0, 0, 20],
+                          stops: [
+                             [0.4, '#BBB'],
+                             [0.6, '#888']
+                          ]
+                       },
+                       stroke: '#000000',
+                       style: {
+                          color: 'white'
+                       }
+                    },
+                    select: {
+                       fill: {
+                          linearGradient: [0, 0, 0, 20],
+                          stops: [
+                             [0.1, '#000'],
+                             [0.3, '#333']
+                          ]
+                       },
+                       stroke: '#000000',
+                       style: {
+                          color: 'yellow'
+                       }
+                    }
+                 }
+              },
+              inputStyle: {
+                 backgroundColor: '#333',
+                 color: 'silver'
+              },
+              labelStyle: {
+                 color: 'silver'
+              }
+           },
+
+           navigator: {
+              handles: {
+                 backgroundColor: '#666',
+                 borderColor: '#AAA'
+              },
+              outlineColor: '#CCC',
+              maskFill: 'rgba(16, 16, 16, 0.5)',
+              series: {
+                 color: '#7798BF',
+                 lineColor: '#A6C7ED'
+              }
+           },
+
+           scrollbar: {
+              barBackgroundColor: {
+                    linearGradient: [0, 0, 0, 20],
+                    stops: [
+                       [0.4, '#888'],
+                       [0.6, '#555']
+                    ]
+                 },
+              barBorderColor: '#CCC',
+              buttonArrowColor: '#CCC',
+              buttonBackgroundColor: {
+                    linearGradient: [0, 0, 0, 20],
+                    stops: [
+                       [0.4, '#888'],
+                       [0.6, '#555']
+                    ]
+                 },
+              buttonBorderColor: '#CCC',
+              rifleColor: '#FFF',
+              trackBackgroundColor: {
+                 linearGradient: [0, 0, 0, 10],
+                 stops: [
+                    [0, '#000'],
+                    [1, '#333']
+                 ]
+              },
+              trackBorderColor: '#666'
+           },
+
+           // special colors for some of the
+           legendBackgroundColor: 'rgba(0, 0, 0, 0.5)',
+           legendBackgroundColorSolid: 'rgb(35, 35, 70)',
+           dataLabelsColor: '#444',
+           textColor: '#C0C0C0',
+           maskColor: 'rgba(255,255,255,0.3)'
+        });
+
         $(document).ready(function() {
             var chart = new Highcharts.Chart({
                 chart: {
@@ -120,6 +368,11 @@ Mixjs.module("RankForce", {
                                     self.plotClickEvent(this);
                                 }
                             }
+                        }
+                    },
+                    line: {
+                        dataLabels: {
+                            enabled: true
                         }
                     }
                 },
@@ -149,7 +402,7 @@ Mixjs.module("RankForce", {
     },
 
     plotClickEvent: function(receiver) {
-        if (receiver["url"]) {
+        if (typeof receiver.url !== 'undefined') {
             open(receiver.url + "/&res=100");
         }
     },
@@ -167,14 +420,15 @@ Mixjs.module("RankForce", {
             before: function() {
                 self.showFilter({
                     target: $("#tabbale"),
-                    color: "#000000",
-                    backgroundColor: "#ffffff",
-                    img: "/loading.gif",
-                    text: "now rendering..."
+                    color: "#ffffff",
+                    backgroundColor: "#000000",
+                    img: "/loading2.gif",
+                    transParency: "0.8"
                 });
             },
             after: function() {
                 self.hideFilter();
+                self.followButton();
             }
         });
     }
@@ -185,9 +439,6 @@ function rankforce_boot(boards) {
     obj.setBoards(boards);
     obj.loadScript("/bootstrap/js/bootstrap.min.js", function() {
         obj.events();
-        obj.hook("render", function() {
-            this.followButton();
-        });
         obj.render({board: "all"});
     });
 }
